@@ -1,5 +1,19 @@
 <template>
   <div>
+    <div class="auth-bar">
+  <button v-if="!beverageStore.user" @click="withGoogle">
+    Sign in with Google
+  </button>
+
+  <div v-else>
+    <p>
+      Signed in as:
+      {{ beverageStore.user.displayName || beverageStore.user.email }}
+    </p>
+    <button @click="logOut">Sign out</button>
+  </div>
+</div>
+
     <Beverage :isIced="beverageStore.currentTemp === 'Cold'" />
     <ul>
       <li>
@@ -65,16 +79,68 @@
         </template>
       </li>
     </ul>
-    <input type="text" placeholder="Beverage Name" />
-    <button>🍺 Make Beverage</button>
+    <input
+  type="text"
+    placeholder="Beverage Name"
+    v-model="beverageStore.currentName"
+  />
+    <button
+      :disabled="!beverageStore.user"
+      @click="beverageStore.makeBeverage()"
+    >
+      🍺 Make Beverage
+    </button>
+
+    <div v-if="beverageStore.user && beverageStore.beverages.length > 0">
+      <h3>Saved Beverages</h3>
+      <ul>
+        <li v-for="bev in beverageStore.beverages" :key="bev.id">
+          <label>
+            <input
+              type="radio"
+              name="saved-beverage"
+              :value="bev"
+              v-model="beverageStore.currentBeverage"
+              @change="beverageStore.showBeverage()"
+            />
+            {{ bev.name }}
+          </label>
+        </li>
+      </ul>
+    </div>
+
   </div>
   <div id="beverage-container" style="margin-top: 20px"></div>
 </template>
 
 <script setup lang="ts">
+import { onMounted } from "vue";
+import {
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+} from "firebase/auth";
 import Beverage from "./components/Beverage.vue";
 import { useBeverageStore } from "./stores/beverageStore";
+import { auth } from "./firebase";
+
 const beverageStore = useBeverageStore();
+
+const withGoogle = async () => {
+  const provider = new GoogleAuthProvider();
+  await signInWithPopup(auth, provider);
+};
+
+const logOut = async () => {
+  await signOut(auth);
+};
+
+onMounted(() => {
+  onAuthStateChanged(auth, (user) => {
+    beverageStore.setUser(user);
+  });
+});
 </script>
 
 <style lang="scss">
@@ -90,5 +156,17 @@ html {
 }
 ul {
   list-style: none;
+}
+.auth-bar {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.auth-bar button {
+  padding: 6px 12px;
+  cursor: pointer;
 }
 </style>
